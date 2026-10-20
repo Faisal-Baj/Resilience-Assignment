@@ -1,191 +1,178 @@
 # Secure Remediation Workspace
 
-A small web app where organizations assign remediation work, track progress and approve completion.
+My submission for the Full Stack Engineering Assessment. It's a small web app where managers create remediation
+items and assign them, members work on them, and a different manager approves the result.
 
-- **Managers** see every item in their organization, create / edit / reassign items, and review submitted work.
-- **Members** see only the items currently assigned to them, start work and submit it for review.
+Stack: Node.js 22, Express 5, PostgreSQL 17, Prisma 7, plain HTML and JavaScript, Tailwind CSS and Vitest. It's not
+TypeScript and React. I explain why under [Completed scope](#completed-scope).
 
-**Stack:** Node.js 22 · Express 5 · PostgreSQL 17 · Prisma 7 · plain HTML + JavaScript · Tailwind CSS v4
+What's in the repo:
 
-## Running it locally
+- `src/` is the API, `public/` the pages, and `tests/` the tests.
+- `package-lock.json` is the lockfile.
+- `prisma/` has the database schema, the migrations and the seed data.
+- `.env.example` has the settings, with no real secrets.
+- `ARCHITECTURE.md` is the architecture note.
 
-Requirements: Node.js 22+ and a running PostgreSQL server.
+## Libraries used
+
+| Library | What it does |
+|---|---|
+| `express` | The web server: the API routes and serving the pages |
+| `prisma`, `@prisma/client`, `@prisma/adapter-pg` | Talks to PostgreSQL, and runs the migrations and the seed |
+| `zod` | Validates inputs |
+| `argon2` | Hashes passwords |
+| `jose` | Creates and checks the login tokens (JWT) |
+| `cookie-parser` | Reads the token cookie from requests |
+| `helmet` | Adds security headers to every response |
+| `express-rate-limit` | Limits failed logins |
+| `dotenv` | Loads the settings from `.env` |
+| `tsx` | Runs the server (Prisma 7 generates its client in TypeScript) |
+| `tailwindcss`, `@tailwindcss/cli` | Styles the pages and builds the CSS file |
+| `vitest` | Runs the tests |
+| `supertest` | Sends requests to the app inside the tests |
+| `jsdom` | A fake browser page for the frontend test |
+
+## Setup instructions
+
+You need Node.js 22.12 or newer and PostgreSQL running on your machine.
 
 ```bash
 npm install
-cp .env.example .env      # then fill in the values (see below)
-npm run setup             # create the database tables, generate the Prisma client, load demo data
+cp .env.example .env      # then fill in the values
+npm run setup             # creates the database, the tables and the demo data
 npm run dev               # http://localhost:3000
 ```
 
-| `.env` variable | Meaning |
+
+## Demo accounts
+
+All accounts use the password in `SEED_PASSWORD`. Emails aren't case sensitive.
+
+| Org_A | Org_B |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Random secret (≥ 32 characters) used to sign access tokens |
-| `SEED_PASSWORD` | Password given to every demo account (≥ 12 characters) |
-| `APP_ORIGIN` | The URL you open in the browser (default `http://localhost:3000`) |
-| `COOKIE_SECURE` | `true` when the app is served over HTTPS |
-| `APP_TIMEZONE` | Timezone that decides what "today" is for overdue items |
+| User1A@orgA.test (manager) | User1B@orgB.test (manager) |
+| User4A@orgA.test (manager) | User3B@orgB.test (manager) |
+| User2A@orgA.test (member) | User2B@orgB.test (member) |
+| User3A@orgA.test (member) | User4B@orgB.test (member) |
 
-`npm run db:seed` resets the demo data.
+Some items are assigned to User1A, so User4A has to review those.
 
-### Demo accounts (password = `SEED_PASSWORD`)
+## Test commands
 
-| Email | Role | Organization | Notes |
-|---|---|---|---|
-| User1A@orgA.test | Manager | Org_A | Has items assigned to himself, so User4A must review them |
-| User2A@orgA.test | Member | Org_A | |
-| User3A@orgA.test | Member | Org_A | |
-| User4A@orgA.test | Manager | Org_A | |
-| User1B@orgB.test | Manager | Org_B | Second organization, to show data isolation |
-| User2B@orgB.test | Member | Org_B | |
-| User3B@orgB.test | Manager | Org_B | |
-| User4B@orgB.test | Member | Org_B | |
-
-Emails are not case-sensitive at sign-in.
-
-## Project structure
-
-```
-src/server.js         Express setup: security headers, static pages, Origin check, routes
-src/config.js         Reads and validates .env
-src/db.js             Prisma client
-src/errors.js         HttpError + JSON error handler
-src/auth.js           Login, logout, sessions, access tokens, requireAuth, login rate limit
-src/permissions.js    Every "who can see / do what" rule, in one place
-src/items.js          Item routes: list, detail, create, edit/reassign, workflow actions, audit log
-prisma/schema.prisma  Database tables and indexes
-prisma/seed.js        Demo data
-public/               HTML pages + one small JS file per page (common.js holds shared helpers)
+```bash
+npm test
 ```
 
-## Authentication and sessions
+The tests use a real PostgreSQL database (`TEST_DATABASE_URL`), not mocks. Before each test, that database is
+emptied and filled with the same small data set, so the tests don't affect each other. They refuse to run if
+`TEST_DATABASE_URL` is missing or is the same as `DATABASE_URL`.
 
-- **Passwords** are hashed with **argon2id** (`argon2` library).
-- **Login** creates a `Session` row and issues a signed **access token** (JWT, HS256, `jose` library) that is
-  valid for **15 minutes**. The token contains only the user id (`sub`) and the session id (`sid`).
-- **Every request** goes through `requireAuth`, which:
-  1. verifies the token's signature, allows **only HS256** (so `alg: none` and other algorithms are rejected),
-     and checks **expiry, issuer and audience**. Malformed, tampered or expired tokens get `401`;
-  2. checks in the database that the **session still exists**;
-  3. takes the user's **role and organization from the database**. Nothing the client sends is used as proof of
-     identity, role or organization.
-- **Session lifecycle:** a session lasts until the token expires (15 minutes after sign-in) or until logout,
-  whichever comes first. Then the user signs in again.
-- **Logout** deletes the session row and the cookie. Every previously issued token for that session is rejected
-  from then on, even a copy someone kept, because step 2 fails.
-- **Login protection:** failed sign-ins are limited to 10 per 15 minutes per IP address. The error is always
-  `Invalid email or password.`, whether the email does not exist or the password is wrong. For unknown emails the server still runs argon2 against a dummy hash, so the response time does not
-  reveal whether an account exists.
+| Test from the brief | File |
+|---|---|
+| 1. Login and an authenticated request | `tests/auth.test.js` |
+| 2. Invalid credentials, and malformed, tampered, expired, wrong issuer and wrong audience tokens | `tests/auth.test.js` |
+| 3. Logout | `tests/auth.test.js` |
+| 4. Disabled user | `tests/auth.test.js` |
+| 5. Another organization's data (reads and changes) | `tests/items.test.js` |
+| 6. Not allowed inside the same organization | `tests/items.test.js` |
+| 7. Valid workflow and invalid transition | `tests/items.test.js` |
+| 8. Stale edit and two reviews at the same moment | `tests/items.test.js` |
+| 9. Frontend: failed sign-in and double click | `tests/login-page.test.js` |
 
-### Where the token is stored, and why
+The test groups inside the files start with the same numbers.
 
-The token is stored in a **cookie** with these flags:
+## Time spent
 
-- **`HttpOnly`, against XSS.** JavaScript on the page cannot read the cookie, so an injected script could not
-  steal the token. To lower the XSS risk itself, API data is only written to the page with `textContent` (never
-  `innerHTML`), and helmet's Content Security Policy only allows our own scripts.
-- **`SameSite=Strict`, against CSRF.** The browser does not attach the cookie to requests that start on another
-  website. As a second check, every `POST`/`PATCH` must carry an `Origin` header equal to `APP_ORIGIN`, otherwise
-  `403`. Pages and API share one origin and CORS is not enabled, so other sites cannot read API responses.
-- **`Path=/api`**, plus **`Secure`** when `COOKIE_SECURE=true`.
+About 8 hours. Around 1 hour to plan, around 5 hours building the app, and around 1:30 hour adding the tests and the disabled user rule and finishing the
+docs.
 
-We do not keep the token in `localStorage`, because any script running on the page can read it.
+## Completed scope
 
-### Secrets
+Done:
 
-`.env` (database password, signing key, seed password) is git-ignored; only `.env.example` with placeholders is
-committed. The app does not log requests, so passwords and tokens never reach a log. Clients never see stack
-traces: unexpected errors return a generic message and the details go to the server console.
+- Two organizations with 2 managers and 2 members each. Login and logout.
+- The access rules, checked on the server. Organizations are separated, members only see their own items, nobody
+  reviews their own item, and reassigning an item removes the old member's access right away.
+- Signed tokens that last 15 minutes, with a session row checked on every request. Logout stops old tokens, disabled
+  users are locked out, and failed logins are limited.
+- Strict input checks, an audit event for every change, and a version number on each item so stale or competing
+  changes are rejected.
+- The workflow: start, submit, approve and request changes.
+- An inbox with pagination and filters, a form for managers, and an item page with the allowed actions and the
+  history. It has loading, empty, error and "session expired" states, and it keeps your input if something fails.
+- Tests for all 9 cases in the brief.
 
-## Authorization
+Not done: TypeScript and React. I used plain JavaScript and plain HTML pages. Most of what I know is from university,
+and I wanted to understand and explain every line I submit. With four simple pages, a framework would add more to
+learn without changing the security, which is all on the server. I know it's not what was asked, so it's my first
+priority below.
 
-All rules live in `src/permissions.js`.
+## Assumptions
 
-- **What a user can see:** `visibleItemsFilter(user)`. Managers see items of their organization; members see
-  items of their organization **that are currently assigned to them**. Every list, count, detail and change
-  starts from this filter, so all of them follow the same rules.
-- **Reassignment removes access immediately:** the previous member no longer matches the filter, so their next
-  request for that item returns `404`.
-- **Other organizations:** their items are never found (`404`, which also hides whether an id exists). Items
-  can only be assigned to users of the manager's own organization.
-- **Actions:** the `ACTIONS` table says who may do what, from which status. The detail endpoint returns
-  `allowedActions` from the same table so the UI only shows permitted buttons, but **the server checks the rule
-  again on every request**.
-
-Status codes: `401` not signed in · `403` not allowed · `404` not visible · `409` wrong status or changed by
-someone else · `400` invalid input · `429` too many failed logins.
-
-## Workflow
-
-| Current status | Action | Who | New status |
-|---|---|---|---|
-| Open | Start work | Current assignee | In progress |
-| In progress | Submit (non-empty completion note) | Current assignee | Pending review |
-| Pending review | Approve | A manager who is not the assignee | Closed |
-| Pending review | Request changes (non-empty reason) | A manager who is not the assignee | In progress |
-
-Managers can edit or reassign only while an item is Open or In progress. Reassignment keeps the status. Closed
-items are read-only.
-
-**Due dates** are **calendar dates** (`YYYY-MM-DD`, Postgres `DATE` column), not timestamps. An item is
-**overdue** when today's date in `APP_TIMEZONE` is after its due date and it is not Closed. An item due today
-is not overdue yet. Only the server decides this; the inbox filter and the `isOverdue` flag use the same rule.
-
-## Data integrity
-
-- **Writable fields are listed explicitly.** Request bodies are validated with strict Zod schemas. Unknown
-  fields such as `organizationId`, `status` or `createdAt` are rejected with `400`.
-- **Audit log:** creation, edits, reassignment and every status change write an `AuditEvent` with the actor,
-  the time and what changed (e.g. `{ status: { from, to } }`). There is no API to change or delete audit events.
-- **Consistency:** each change and its audit event are saved in **one database transaction**, so if anything
-  fails, neither is saved.
-- **Stale edits and races:** every item has a `version` number that goes up on each change. The client sends
-  the version it saw, and the update runs as `UPDATE … WHERE id = ? AND version = ?`. An outdated or competing
-  request (for example, approve and request changes at the same moment) gets `409`. Exactly one of them wins.
-- **Bounded queries:** page size max 50 (default 10), page number max 1000, activity history shows the latest
-  100 events, the assignee list returns at most 200 users. Indexes match the inbox queries
-  (`organizationId, status, dueDate` for managers and `assigneeId, status, dueDate` for members) and the
-  activity history (`itemId, createdAt`).
-
-## Frontend
-
-Plain HTML pages styled with Tailwind, with one small JavaScript module per page.
-
-- The inbox has server-side pagination plus status and overdue filters.
-- Pages show loading, empty and error states. Opening the app while signed out shows the login page; if the session expires while the user is working, the login page says so.
-- Forms keep their input on errors. Typed text is also saved in `sessionStorage`, so it survives signing in again.
-- Buttons are disabled while a request is running. On the server, the version check stops a repeated action
-  from being applied twice.
-- All controls are labeled native elements, so everything works with the keyboard. The layout works on phones.
-
-## How this was checked
-
-There are no automated tests in the repository. Every rule above was exercised by hand with real HTTP requests:
-
-- token tampering, the wrong algorithm, issuer or audience, and expired tokens;
-- logout;
-- cross-organization access, reassignment and self-review;
-- every workflow transition, stale and competing edits;
-- the audit trail, pagination limits and the login rate limit.
+- Users come from the seed, since registration is out of scope. To disable a user, you set `disabled = true` in the
+  database.
+- Managers can be assignees too. Their submitted items are reviewed by another manager.
+- The "request changes" reason is saved in the item's history, not on the item.
+- Due dates are calendar dates in one timezone (`APP_TIMEZONE`). An item due today isn't overdue yet.
+- An item you can't see gives `404`, so you can't tell it exists. An action you're not allowed to do gives `403`.
 
 ## Known limitations
 
-This is a take-home project. It has not been load-tested, security-audited or deployed, and it is **not
-production-ready**.
+I haven't load tested it, it hasn't had a security audit, and it isn't deployed, so it isn't production ready.
 
-- No automated tests in the repository.
-- The login rate limit is kept in memory: it resets on restart and does not work across several server
-  instances. Behind a reverse proxy, Express `trust proxy` must be set or all users share the proxy's IP.
-- No refresh tokens: users sign in again every 15 minutes.
-- `HttpOnly` prevents token theft, but a successful XSS could still send requests as the user while the page is
-  open. CSP and `textContent` rendering are the defences against that.
-- No user-administration screen: accounts come from the seed script, and users cannot be disabled.
-- An item assigned to a manager needs a second manager to review it.
-- The audit log is append-only at the application level only. Someone with direct database access could still
-  change it.
-- Session rows of expired tokens are not cleaned up.
-- One timezone (`APP_TIMEZONE`) for all organizations.
-- `npm audit` reports an issue in a **development-only** dependency (Tailwind CLI's file watcher). It is not part
-  of the running app.
-- HTTPS is not configured. In a real deployment, serve over HTTPS and set `COOKIE_SECURE=true`.
+- Plain JavaScript and HTML instead of TypeScript and React.
+- Only the login page has a frontend test. I checked the other pages by hand.
+- The failed login limit is kept in memory. It resets on restart and wouldn't work across several servers.
+- No refresh tokens, so users sign in again every 15 minutes.
+- No admin page for users, and a disabled user can still be picked as an assignee.
+- Old session rows are never deleted.
+- The audit log can't be edited through the app, but someone with direct database access could change it.
+- One timezone for all organizations, and HTTPS isn't set up.
+- `npm audit` flags a package that's only used during development (Tailwind's file watcher).
+  `npm audit --omit=dev` shows 0 issues.
+
+## Next three priorities
+
+1. Move to TypeScript and React. The API stays the same, so the tests would catch mistakes.
+2. Add frontend tests for the item page and the form, and run `npm test` automatically on every push.
+3. Add an admin action to disable users and end their sessions, and clean up old sessions.
+
+## Architecture note
+
+See [ARCHITECTURE.md](ARCHITECTURE.md). It follows the 7 points in the brief.
+
+## Handoff for the next engineer
+
+- Start with `src/permissions.js`. Every access rule is in that one file. Then read `ARCHITECTURE.md`.
+- Please keep these rules: who the user is only comes from `requireAuth`, every item query starts from
+  `visibleItemsFilter(req.user)`, and every item change runs in one transaction with a version check and an audit
+  event. Run `npm test` after any change.
+- After changing `prisma/schema.prisma`, run `npx prisma migrate dev --name <name>` and then `npx prisma generate`.
+- Run `npm run css` after changing Tailwind classes.
+- Scripts that send POST or PATCH requests need the header `Origin: http://localhost:3000`, or they get `403`.
+- 10 failed logins block your IP for 15 minutes. Restarting the server clears it.
+
+## AI usage note
+
+I used Claude Code (Anthropic's coding agent) in the Claude desktop app to plan and to write the code, the tests and
+these docs. I used Context7 to look up current library docs. I chose what to build and the main design. The agent
+wrote most of the code, and I went through every file until I understood it. This was my first time writing
+automated tests.
+
+How we checked the work:
+
+- We broke the code on purpose. We removed five rules one at a time, like the disabled user check and the version
+  check, and made sure the right test failed each time.
+- Before the tests existed, I checked the rules with small scripts that sent real requests to the running server.
+- We copied only the repo files to a new folder with empty databases, and ran the setup, the tests and the server
+  there.
+- The agent's knowledge of Prisma 7 was out of date, so we checked the setup against the current docs.
+
+Two things the agent got wrong at first:
+
+- Its tampered token test changed the user id inside the token. It would have passed even without signature checks,
+  because the session belongs to another user. Now it changes the expiry instead, which only the signature check can
+  catch.
+- Its race test sent two reviews at once, but they never really overlapped: removing the version check didn't make
+  it fail. Now the test locks the item's row so the two requests really collide.

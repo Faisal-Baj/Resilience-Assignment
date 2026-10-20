@@ -47,6 +47,7 @@ model User {
   name           String
   role           Role
   passwordHash   String // argon2id hash, never the real password
+  disabled       Boolean      @default(false) // a disabled user can't sign in, and their open sessions stop working
 
   sessions      Session[]
   assignedItems RemediationItem[]

@@ -4,7 +4,8 @@
 // 1. Login checks the password with argon2 and adds a row to the Session table.
 // 2. The browser gets a signed token (a JWT that lasts 15 minutes) in an HttpOnly cookie.
 //    The token only holds the user id (sub) and the session id (sid).
-// 3. On every request, requireAuth checks the token, then checks that the session row still exists.
+// 3. On every request, requireAuth checks the token, then checks that the session row still exists
+//    and that the user isn't disabled.
 // 4. After 15 minutes the token expires and the user has to sign in again.
 // 5. Logout deletes the session row, so the token stops working right away, even if someone copied it.
 import express from 'express';
@@ -50,6 +51,8 @@ async function findSession(req) {
 
   const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: true } });
   if (!session || session.userId !== payload.sub) return null;
+  // The user is loaded on every request, so disabling them locks them out on their very next request.
+  if (session.user.disabled) return null;
   return session;
 }
 
@@ -86,8 +89,9 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email } });
   const passwordMatches = await argon2.verify(user?.passwordHash ?? DUMMY_PASSWORD_HASH, password);
 
-  // Same error for a wrong email and a wrong password.
-  if (!user || !passwordMatches) {
+  // Same error for a wrong email, a wrong password and a disabled account,
+  // so the response never tells anyone which accounts exist.
+  if (!user || !passwordMatches || user.disabled) {
     throw new HttpError(401, 'Invalid email or password.');
   }
 

@@ -8,7 +8,8 @@
     "dev": "npm run css && tsx watch src/server.js",
     "start": "npm run css && tsx src/server.js",
     "css": "tailwindcss -i src/styles.css -o public/app.css --minify",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test": "vitest run"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
@@ -25,7 +26,10 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
+    "jsdom": "^30.1.3",
     "prisma": "^7.10.1",
-    "tailwindcss": "^4.3.3"
+    "supertest": "^7.3.1",
+    "tailwindcss": "^4.3.3",
+    "vitest": "^5.0.5"
   }
 }
