@@ -1,0 +1,15 @@
+node_modules/
+
+# Secrets: database password, JWT signing key, seed password
+.env
+
+# Generated files (re-created by `npm run setup` / `npm run css`)
+generated/
+public/app.css
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

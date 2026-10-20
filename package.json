@@ -1,0 +1,31 @@
+{
+  "name": "secure-remediation-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "prisma migrate deploy && prisma generate && prisma db seed",
+    "dev": "npm run css && tsx watch src/server.js",
+    "start": "npm run css && tsx src/server.js",
+    "css": "tailwindcss -i src/styles.css -o public/app.css --minify",
+    "db:seed": "prisma db seed"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "argon2": "^0.45.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "jose": "^6.2.13",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "prisma": "^7.10.1",
+    "tailwindcss": "^4.3.3"
+  }
+}

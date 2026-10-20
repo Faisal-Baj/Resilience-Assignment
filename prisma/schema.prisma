@@ -1,0 +1,96 @@
+// Database schema. After you change it, run `npx prisma migrate dev` and then `npx prisma generate`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+// The database URL is set in prisma.config.js (it reads it from .env).
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MANAGER
+  MEMBER
+}
+
+enum ItemStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_REVIEW
+  CLOSED
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  REASSIGNED
+  STARTED
+  SUBMITTED
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+model Organization {
+  id    String            @id @default(uuid())
+  name  String
+  users User[]
+  items RemediationItem[]
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  email          String       @unique // saved in lower case
+  name           String
+  role           Role
+  passwordHash   String // argon2id hash, never the real password
+
+  sessions      Session[]
+  assignedItems RemediationItem[]
+  auditEvents   AuditEvent[]
+}
+
+// One row per sign-in. The token holds this row's id.
+// Logout deletes the row, and every token for it stops working right away.
+model Session {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model RemediationItem {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  title          String
+  description    String       @default("") // plain text
+  assigneeId     String
+  assignee       User         @relation(fields: [assigneeId], references: [id])
+  dueDate        DateTime     @db.Date // a date only, no time
+  status         ItemStatus   @default(OPEN)
+  completionNote String?
+  version        Int          @default(1) // goes up by 1 on every change, to catch edits made on an old copy
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  auditEvents    AuditEvent[]
+
+  @@index([organizationId, status, dueDate]) // manager inbox: whole organization, filtered by status, sorted by due date
+  @@index([assigneeId, status, dueDate]) // member inbox: only my items, filtered by status, sorted by due date
+}
+
+// The history of every change. Rows are only ever added: no API can edit or delete them.
+model AuditEvent {
+  id        String          @id @default(uuid())
+  itemId    String
+  item      RemediationItem @relation(fields: [itemId], references: [id])
+  actorId   String
+  actor     User            @relation(fields: [actorId], references: [id])
+  action    AuditAction
+  changes   Json // what changed
+  createdAt DateTime        @default(now())
+
+  @@index([itemId, createdAt]) // the activity list on the item page
+}

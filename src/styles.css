@@ -1,0 +1,97 @@
+/* Tailwind input file. `npm run css` builds it into public/app.css. */
+@import "tailwindcss";
+@source "../public";
+
+/* Colors: near-black background with blue accents. Each one becomes a class,
+   for example --color-panel gives bg-panel, text-panel and ring-panel. */
+@theme {
+  --color-night: #05070d; /* page background */
+  --color-panel: #0d1324; /* cards, folders and the header */
+  --color-panel-hover: #131c33; /* folder on hover */
+  --color-line: #1f2a47; /* borders */
+  --color-brand: #3a9fd1; /* main buttons */
+  --color-brand-hover: #55b2de;
+  --color-mist: #9fd4e6; /* light cyan: links and accents */
+  --color-royal: #4a5fd0; /* gradient start */
+  --color-periwinkle: #9db0e8; /* gradient end */
+}
+
+@layer base {
+  html {
+    color-scheme: dark; /* dark scrollbars, date picker and dropdown lists */
+  }
+  body {
+    @apply min-h-screen bg-night text-slate-200;
+    /* a soft blue glow at the top of the page */
+    background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgb(74 95 208 / 0.2), transparent);
+    background-attachment: fixed;
+  }
+}
+
+/* A few shared classes to keep the HTML short. Everything else uses Tailwind classes in the HTML. */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
+      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-brand text-white hover:bg-brand-hover;
+  }
+  .btn-secondary {
+    @apply text-mist ring-1 ring-slate-500 ring-inset hover:bg-white/5;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-300;
+  }
+  .input {
+    @apply mt-1 block w-full rounded-xl border border-line bg-night px-3 py-2 text-sm text-white
+      focus:border-brand focus:outline-2 focus:outline-brand
+      aria-[invalid=true]:border-red-400;
+  }
+  .field-error {
+    @apply mt-1 text-sm text-red-300;
+  }
+  .card {
+    @apply rounded-2xl bg-panel p-4 ring-1 ring-line sm:p-6;
+  }
+  .alert-error {
+    @apply rounded-xl bg-red-500/10 p-3 text-sm text-red-200 ring-1 ring-red-400/30;
+  }
+  .alert-info {
+    @apply rounded-xl bg-sky-500/10 p-3 text-sm text-sky-200 ring-1 ring-sky-400/30;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+  .brand-gradient {
+    @apply bg-linear-to-r from-royal to-periwinkle bg-clip-text text-transparent;
+  }
+
+  /* Inbox items look like file folders: a small tab on top of a rounded body.
+     The tab, the body and the curved corner all use --folder-bg, so they change color together on hover. */
+  .folder {
+    --folder-bg: var(--color-panel);
+    @apply flex h-full flex-col rounded-2xl
+      focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand;
+  }
+  .folder:hover {
+    --folder-bg: var(--color-panel-hover);
+  }
+  .folder-tab {
+    @apply relative flex w-fit flex-wrap gap-2 rounded-t-xl bg-(--folder-bg) px-4 pt-2.5 pb-1;
+  }
+  /* Rounds the inside corner where the tab meets the body. */
+  .folder-tab::after {
+    content: "";
+    position: absolute;
+    right: -0.75rem;
+    bottom: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    background: radial-gradient(circle at 100% 0, transparent 0.75rem, var(--folder-bg) calc(0.75rem + 0.5px));
+  }
+  .folder-body {
+    @apply flex-1 rounded-2xl rounded-tl-none bg-(--folder-bg) p-5;
+  }
+}

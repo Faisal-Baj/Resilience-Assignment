@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Item form · Remediation Workspace</title>
+  <link rel="stylesheet" href="/app.css">
+  <script type="module" src="/js/item-form.js"></script>
+</head>
+<body>
+  <header id="app-header"></header>
+
+  <main class="mx-auto max-w-2xl px-4 py-6">
+    <a href="/" class="text-sm font-medium text-mist hover:underline">← Back to items</a>
+    <h1 id="form-title" class="mt-4 text-xl font-semibold text-white">New remediation item</h1>
+
+    <p id="page-loading" class="mt-6 text-sm text-slate-400" role="status">Loading…</p>
+    <div id="page-error" class="alert-error mt-6" role="alert" hidden></div>
+
+    <form id="item-form" class="card mt-4 space-y-5" novalidate hidden>
+      <div id="form-error" class="alert-error" role="alert" hidden>
+        <p data-message></p>
+        <button id="load-latest" type="button" class="btn btn-secondary mt-2" hidden>
+          Load the latest version (your changes will be lost)
+        </button>
+      </div>
+
+      <div>
+        <label for="title" class="label">Title</label>
+        <input id="title" name="title" type="text" maxlength="200" required class="input" aria-describedby="title-error">
+        <p id="title-error" class="field-error" hidden></p>
+      </div>
+
+      <div>
+        <label for="description" class="label">
+          Description <span class="font-normal text-slate-400">(plain text, optional)</span>
+        </label>
+        <textarea id="description" name="description" rows="6" maxlength="5000" class="input"
+          aria-describedby="description-error"></textarea>
+        <p id="description-error" class="field-error" hidden></p>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label for="assigneeId" class="label">Assigned to</label>
+          <select id="assigneeId" name="assigneeId" required class="input" aria-describedby="assigneeId-error">
+            <option value="">Choose a person…</option>
+          </select>
+          <p id="assigneeId-error" class="field-error" hidden></p>
+        </div>
+        <div>
+          <label for="dueDate" class="label">Due date</label>
+          <input id="dueDate" name="dueDate" type="date" required class="input" aria-describedby="dueDate-error">
+          <p id="dueDate-error" class="field-error" hidden></p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button id="cancel" type="button" class="btn btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Item · Remediation Workspace</title>
+  <link rel="stylesheet" href="/app.css">
+  <script type="module" src="/js/item.js"></script>
+</head>
+<body>
+  <header id="app-header"></header>
+
+  <main class="mx-auto max-w-3xl px-4 py-6">
+    <a href="/" class="text-sm font-medium text-mist hover:underline">← Back to items</a>
+
+    <p id="page-loading" class="mt-6 text-sm text-slate-400" role="status">Loading item…</p>
+    <div id="page-error" class="alert-error mt-6" role="alert" hidden></div>
+
+    <div id="item-view" hidden>
+      <!-- Item details -->
+      <section class="card mt-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <h1 id="item-title" class="text-xl font-semibold break-words text-white"></h1>
+          <div id="item-badges" class="flex shrink-0 flex-wrap gap-2"></div>
+        </div>
+
+        <dl class="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt class="text-slate-400">Assigned to</dt>
+            <dd id="item-assignee" class="font-medium text-white"></dd>
+          </div>
+          <div>
+            <dt class="text-slate-400">Due date</dt>
+            <dd id="item-due" class="font-medium text-white"></dd>
+          </div>
+          <div>
+            <dt class="text-slate-400">Created</dt>
+            <dd id="item-created"></dd>
+          </div>
+          <div>
+            <dt class="text-slate-400">Last updated</dt>
+            <dd id="item-updated"></dd>
+          </div>
+        </dl>
+
+        <h2 class="mt-6 text-sm text-slate-400">Description</h2>
+        <p id="item-description" class="mt-1 text-sm break-words whitespace-pre-wrap"></p>
+
+        <div id="completion-note-block" hidden>
+          <h2 class="mt-6 text-sm text-slate-400">Completion note</h2>
+          <p id="item-completion-note" class="mt-1 text-sm break-words whitespace-pre-wrap"></p>
+        </div>
+      </section>
+
+      <!-- item.js only shows the ones the server allows for this user -->
+      <section class="card mt-4" aria-labelledby="actions-heading">
+        <h2 id="actions-heading" class="font-semibold text-white">Actions</h2>
+
+        <div id="action-error" class="alert-error mt-3" role="alert" hidden>
+          <p data-message></p>
+          <button id="reload-item" type="button" class="btn btn-secondary mt-2" hidden>Reload item</button>
+        </div>
+        <p id="no-actions" class="mt-2 text-sm text-slate-400" hidden></p>
+
+        <div class="mt-3 flex flex-wrap gap-3">
+          <a id="edit-link" class="btn btn-secondary" hidden>Edit or reassign</a>
+          <button id="start-button" type="button" class="btn btn-primary" hidden>Start work</button>
+          <button id="approve-button" type="button" class="btn btn-primary" hidden>Approve and close</button>
+        </div>
+
+        <form id="submit-form" class="mt-4" novalidate hidden>
+          <label for="completionNote" class="label">Completion note</label>
+          <textarea id="completionNote" name="completionNote" rows="4" maxlength="5000" class="input"
+            aria-describedby="completionNote-error"></textarea>
+          <p id="completionNote-error" class="field-error" hidden></p>
+          <button type="submit" class="btn btn-primary mt-3">Submit for review</button>
+        </form>
+
+        <form id="changes-form" class="mt-4" novalidate hidden>
+          <label for="reason" class="label">What needs to change?</label>
+          <textarea id="reason" name="reason" rows="3" maxlength="2000" class="input"
+            aria-describedby="reason-error"></textarea>
+          <p id="reason-error" class="field-error" hidden></p>
+          <button type="submit" class="btn btn-secondary mt-3">Request changes</button>
+        </form>
+      </section>
+
+      <!-- Activity history (newest first) -->
+      <section class="card mt-4" aria-labelledby="activity-heading">
+        <h2 id="activity-heading" class="font-semibold text-white">Activity</h2>
+        <p id="no-activity" class="mt-2 text-sm text-slate-400" hidden>No activity recorded yet.</p>
+        <ol id="activity-list" class="mt-3 space-y-3"></ol>
+      </section>
+    </div>
+  </main>
+
+  <template id="activity-row">
+    <li class="rounded-xl bg-night/60 px-4 py-3 text-sm ring-1 ring-line">
+      <p><span data-actor class="font-medium text-white"></span> <span data-summary></span></p>
+      <p data-detail class="mt-1 break-words whitespace-pre-wrap text-slate-300" hidden></p>
+      <p class="mt-1 text-xs text-slate-400"><time data-time></time></p>
+    </li>
+  </template>
+</body>
+</html>
